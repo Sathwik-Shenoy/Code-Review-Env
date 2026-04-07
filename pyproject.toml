@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codereviewenv"
+version = "1.0.0"
+description = "OpenEnv-compliant RL environment for software code review"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "CodeReviewEnv" }
+]
+dependencies = [
+  "fastapi==0.115.6",
+  "uvicorn[standard]==0.32.1",
+  "pydantic>=2.10,<3",
+  "openai>=1.58,<3",
+  "openenv-core>=0.2.0"
+]
+
+[project.scripts]
+server = "server.app:main"
+
+[tool.setuptools]
+py-modules = ["server", "inference"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["env*"]

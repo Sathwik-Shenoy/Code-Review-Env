@@ -1,0 +1,36 @@
+name: CodeReviewEnv
+version: 1.0.0
+description: OpenEnv-compliant reinforcement learning environment for software code review.
+entrypoint:
+  type: http
+  base_url: http://0.0.0.0:7860
+  routes:
+    reset:
+      method: POST
+      path: /reset
+    step:
+      method: POST
+      path: /step
+    state:
+      method: POST
+      path: /state
+observation_space:
+  type: object
+  properties:
+    code_snippet: string
+    context: string
+    diff_mode: boolean
+    history: array
+    task_id: integer
+    step_num: integer
+action_space:
+  type: object
+  properties:
+    issues: array
+    overall_score: integer
+    requires_changes: boolean
+    summary: string
+resource_limits:
+  cpu: "2"
+  memory: 8Gi
+deterministic_grading: true
