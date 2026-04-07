@@ -6,8 +6,6 @@ import re
 import time
 from typing import Any, Dict, List, Optional
 
-from openai import OpenAI
-
 from env import CodeReviewEnv
 
 
@@ -54,7 +52,10 @@ def log_start(task_id: int, model_name: str) -> None:
 
 
 def log_step(step: int, action: Dict[str, Any], reward: float, done: bool, error: Optional[str] = None) -> None:
-    action_str = json.dumps(action, separators=(",", ":")) if action else "null"
+    try:
+        action_str = json.dumps(action, separators=(",", ":"), default=str) if action else "null"
+    except BaseException:
+        action_str = "null"
     print(
         f"[STEP] step={step} action={action_str} reward={reward:.2f} "
         f"done={str(done).lower()} error={error or 'null'}",
@@ -72,10 +73,11 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
 
 def run_episode_for_task(
     env: CodeReviewEnv,
-    client: Optional[OpenAI],
+    client: Optional[Any],
     model_name: str,
     task_id: int,
     dry_run: bool = False,
+    max_steps: int = 8,
 ) -> tuple[float, int, List[float]]:
     observation = env.reset(task_id=task_id)
     log_start(task_id, model_name)
@@ -85,7 +87,7 @@ def run_episode_for_task(
     step_idx = 0
     action = None
 
-    while not done:
+    while not done and step_idx < max_steps:
         step_idx += 1
         step_error: Optional[str] = None
 
@@ -138,6 +140,11 @@ def run_episode_for_task(
 
         log_step(step=step_idx, action=action, reward=reward, done=done, error=step_error)
 
+    if not done:
+        # Hard-stop to avoid hanging forever if environment never terminates.
+        rewards.append(0.0)
+        log_step(step=step_idx + 1, action=_empty_action(), reward=0.0, done=True, error="max_steps_exceeded")
+
     # Simple normalized score (0.0 - 1.0)
     score = sum(rewards) / len(rewards) if rewards else 0.0
     score = max(0.0, min(1.0, score))
@@ -167,9 +174,11 @@ def main() -> None:
         # Do not crash the whole script in validator runs; degrade gracefully.
         dry_run = True
 
-    client: Optional[OpenAI] = None
+    client: Optional[Any] = None
     if not dry_run:
         try:
+            from openai import OpenAI
+
             client = OpenAI(base_url=api_base_url, api_key=hf_token)
         except BaseException:
             dry_run = True
@@ -196,6 +205,7 @@ def main() -> None:
                 model_name=model_name,
                 task_id=task_id,
                 dry_run=dry_run,
+                max_steps=8,
             )
         except BaseException as exc:
             # Keep process exit code zero and continue remaining tasks.
