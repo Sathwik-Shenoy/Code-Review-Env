@@ -1,0 +1,22 @@
+{
+  "snippet_id": "t1_input_validation",
+  "task_id": 1,
+  "context": "Pagination parser for an internal HTTP endpoint.",
+  "diff_mode": false,
+  "expected_overall_score": 5,
+  "requires_changes": true,
+  "seeded_issues": [
+    {
+      "line_number": 3,
+      "severity": "minor",
+      "category": "bug",
+      "description": "Blind int() cast can throw for malformed input."
+    },
+    {
+      "line_number": 7,
+      "severity": "minor",
+      "category": "logic",
+      "description": "Negative values are not handled and can leak to callers."
+    }
+  ]
+}

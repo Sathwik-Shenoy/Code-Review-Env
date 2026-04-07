@@ -1,0 +1,16 @@
+{
+  "snippet_id": "t1_unclosed_file",
+  "task_id": 1,
+  "context": "A lightweight audit logger used by CLI tools.",
+  "diff_mode": false,
+  "expected_overall_score": 3,
+  "requires_changes": true,
+  "seeded_issues": [
+    {
+      "line_number": 7,
+      "severity": "major",
+      "category": "bug",
+      "description": "File handle is never closed; use a context manager."
+    }
+  ]
+}

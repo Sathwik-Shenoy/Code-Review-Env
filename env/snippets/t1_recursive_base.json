@@ -1,0 +1,16 @@
+{
+  "snippet_id": "t1_recursive_base",
+  "task_id": 1,
+  "context": "This utility supports route-planning tests with small grid sizes.",
+  "diff_mode": false,
+  "expected_overall_score": 4,
+  "requires_changes": true,
+  "seeded_issues": [
+    {
+      "line_number": 6,
+      "severity": "major",
+      "category": "logic",
+      "description": "Missing base case for zero dimensions causes incorrect recursion behavior."
+    }
+  ]
+}

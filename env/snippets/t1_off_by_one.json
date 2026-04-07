@@ -1,0 +1,16 @@
+{
+  "snippet_id": "t1_off_by_one",
+  "task_id": 1,
+  "context": "This helper paginates records for a read-only analytics table.",
+  "diff_mode": false,
+  "expected_overall_score": 4,
+  "requires_changes": true,
+  "seeded_issues": [
+    {
+      "line_number": 7,
+      "severity": "major",
+      "category": "logic",
+      "description": "Off-by-one end index drops the last record on each page."
+    }
+  ]
+}

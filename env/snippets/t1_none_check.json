@@ -1,0 +1,16 @@
+{
+  "snippet_id": "t1_none_check",
+  "task_id": 1,
+  "context": "This function runs during user signup and receives potentially malformed payloads.",
+  "diff_mode": false,
+  "expected_overall_score": 3,
+  "requires_changes": true,
+  "seeded_issues": [
+    {
+      "line_number": 3,
+      "severity": "major",
+      "category": "bug",
+      "description": "Missing null check can raise attribute error when username is absent."
+    }
+  ]
+}
