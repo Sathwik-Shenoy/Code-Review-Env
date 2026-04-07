@@ -1,0 +1,30 @@
+{
+  "snippet_id": "t3_job_dispatcher_module",
+  "task_id": 3,
+  "context": "In-memory dispatcher for background jobs in an API server.",
+  "diff_mode": false,
+  "expected_overall_score": 2,
+  "requires_changes": true,
+  "staged_context": [
+    "Runs in a low-volume admin worker process.",
+    "Now used in a shared worker pool with many concurrent producers.",
+    "Dropped jobs are causing customer-visible data loss."
+  ],
+  "stage_severity_targets": [
+    {},
+    {
+      "bug:10": "major"
+    },
+    {
+      "bug:10": "critical"
+    }
+  ],
+  "seeded_issues": [
+    {
+      "line_number": 10,
+      "severity": "minor",
+      "category": "bug",
+      "description": "Queue is unsynchronized; concurrent enqueue/pop can race and lose jobs."
+    }
+  ]
+}

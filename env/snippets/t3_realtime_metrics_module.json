@@ -1,0 +1,30 @@
+{
+  "snippet_id": "t3_realtime_metrics_module",
+  "task_id": 3,
+  "context": "This module computes rolling averages for service metrics.",
+  "diff_mode": false,
+  "expected_overall_score": 3,
+  "requires_changes": true,
+  "staged_context": [
+    "Used by a small internal dashboard updated every minute.",
+    "This function is now called 10,000 times per second.",
+    "CPU spikes are triggering autoscaling incidents during peak traffic."
+  ],
+  "stage_severity_targets": [
+    {},
+    {
+      "performance:6": "major"
+    },
+    {
+      "performance:6": "critical"
+    }
+  ],
+  "seeded_issues": [
+    {
+      "line_number": 6,
+      "severity": "minor",
+      "category": "performance",
+      "description": "Repeated key/value iteration and allocation can be optimized in high-frequency path."
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "snippet_id": "t3_token_rotation_module",
+  "task_id": 3,
+  "context": "This token utility controls rotation cadence for API credentials.",
+  "diff_mode": false,
+  "expected_overall_score": 3,
+  "requires_changes": true,
+  "staged_context": [
+    "Tokens are used by low-risk internal tooling.",
+    "Same token format is now used for external partner APIs.",
+    "Compromised tokens could access billing and user profile APIs."
+  ],
+  "stage_severity_targets": [
+    {},
+    {
+      "security:14": "major"
+    },
+    {
+      "security:14": "critical"
+    }
+  ],
+  "seeded_issues": [
+    {
+      "line_number": 14,
+      "severity": "minor",
+      "category": "security",
+      "description": "Token derived only from user id lacks entropy and may be predictable."
+    }
+  ]
+}

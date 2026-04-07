@@ -1,0 +1,30 @@
+{
+  "snippet_id": "t3_admin_audit_module",
+  "task_id": 3,
+  "context": "Module logs privileged admin actions to local disk and supports replay.",
+  "diff_mode": false,
+  "expected_overall_score": 2,
+  "requires_changes": true,
+  "staged_context": [
+    "This log is only used internally for debugging in staging.",
+    "This code now runs in production with admin privileges.",
+    "Audit logs are ingested by a SIEM and used for incident response."
+  ],
+  "stage_severity_targets": [
+    {},
+    {
+      "security:7": "critical"
+    },
+    {
+      "security:7": "critical"
+    }
+  ],
+  "seeded_issues": [
+    {
+      "line_number": 7,
+      "severity": "major",
+      "category": "security",
+      "description": "User-controlled input is logged without sanitization, enabling log injection." 
+    }
+  ]
+}

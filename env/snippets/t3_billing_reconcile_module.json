@@ -1,0 +1,30 @@
+{
+  "snippet_id": "t3_billing_reconcile_module",
+  "task_id": 3,
+  "context": "Reconciliation helper for billing settlement jobs.",
+  "diff_mode": false,
+  "expected_overall_score": 4,
+  "requires_changes": true,
+  "staged_context": [
+    "Used for internal monthly reporting drafts.",
+    "Output is now sent directly to customer invoices.",
+    "Incorrect due amounts can trigger legal and compliance escalations."
+  ],
+  "stage_severity_targets": [
+    {},
+    {
+      "logic:8": "major"
+    },
+    {
+      "logic:8": "critical"
+    }
+  ],
+  "seeded_issues": [
+    {
+      "line_number": 8,
+      "severity": "minor",
+      "category": "logic",
+      "description": "Zero and negative adjustments are treated as payable due amounts."
+    }
+  ]
+}
