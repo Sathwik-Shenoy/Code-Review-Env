@@ -1,0 +1,16 @@
+{
+  "snippet_id": "t2_image_processor_diff",
+  "task_id": 2,
+  "context": "PR touching batch image resize utility used in media ingestion.",
+  "diff_mode": true,
+  "expected_overall_score": 4,
+  "requires_changes": true,
+  "seeded_issues": [
+    {
+      "line_number": 8,
+      "severity": "major",
+      "category": "logic",
+      "description": "Each resized image is duplicated in output list."
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "snippet_id": "t2_user_repo_diff",
+  "task_id": 2,
+  "context": "Review this pull request diff for a user repository class used by an auth service.",
+  "diff_mode": true,
+  "expected_overall_score": 2,
+  "requires_changes": true,
+  "seeded_issues": [
+    {
+      "line_number": 5,
+      "severity": "critical",
+      "category": "security",
+      "description": "SQL injection risk due to string interpolation with email input."
+    }
+  ]
+}

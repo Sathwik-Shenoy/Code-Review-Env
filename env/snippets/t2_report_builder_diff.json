@@ -1,0 +1,16 @@
+{
+  "snippet_id": "t2_report_builder_diff",
+  "task_id": 2,
+  "context": "Diff for report generation service used by finance team.",
+  "diff_mode": true,
+  "expected_overall_score": 3,
+  "requires_changes": true,
+  "seeded_issues": [
+    {
+      "line_number": 13,
+      "severity": "major",
+      "category": "logic",
+      "description": "Rows are appended twice, producing duplicate output."
+    }
+  ]
+}

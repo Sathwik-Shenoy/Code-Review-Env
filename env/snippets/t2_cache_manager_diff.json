@@ -1,0 +1,22 @@
+{
+  "snippet_id": "t2_cache_manager_diff",
+  "task_id": 2,
+  "context": "This cache class was updated to improve profile fetch latency.",
+  "diff_mode": true,
+  "expected_overall_score": 3,
+  "requires_changes": true,
+  "seeded_issues": [
+    {
+      "line_number": 21,
+      "severity": "major",
+      "category": "performance",
+      "description": "Redundant sorting work result is discarded, wasting CPU."
+    },
+    {
+      "line_number": 18,
+      "severity": "major",
+      "category": "logic",
+      "description": "Warm path bypasses get() semantics and can diverge from cache normalization."
+    }
+  ]
+}

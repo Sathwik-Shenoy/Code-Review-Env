@@ -1,0 +1,28 @@
+{
+  "snippet_id": "t2_payment_service_diff",
+  "task_id": 2,
+  "context": "PR modifies payment submission flow in checkout backend.",
+  "diff_mode": true,
+  "expected_overall_score": 2,
+  "requires_changes": true,
+  "seeded_issues": [
+    {
+      "line_number": 4,
+      "severity": "major",
+      "category": "logic",
+      "description": "Allows zero-amount charges due to relaxed validation."
+    },
+    {
+      "line_number": 11,
+      "severity": "major",
+      "category": "performance",
+      "description": "Refreshing config inside hot path loop adds avoidable latency."
+    },
+    {
+      "line_number": 19,
+      "severity": "minor",
+      "category": "logic",
+      "description": "Return type changes from response object to bool for success case."
+    }
+  ]
+}
