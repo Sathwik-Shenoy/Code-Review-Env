@@ -154,7 +154,13 @@ def main() -> None:
 
     # Optional for some OpenEnv runners
     local_image_name = os.getenv("LOCAL_IMAGE_NAME")
-    dry_run = os.getenv("INFERENCE_DRY_RUN", "0") == "1"
+    # Safe default: avoid external model/network calls in validator pipelines unless explicitly enabled.
+    explicit_dry_run = os.getenv("INFERENCE_DRY_RUN")
+    allow_network_inference = os.getenv("ALLOW_NETWORK_INFERENCE", "0") == "1"
+    if explicit_dry_run is None:
+        dry_run = not allow_network_inference
+    else:
+        dry_run = explicit_dry_run == "1"
     _ = local_image_name  # silence unused variable warning
 
     if not dry_run and not hf_token:
