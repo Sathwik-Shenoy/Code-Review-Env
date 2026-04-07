@@ -120,13 +120,13 @@ def run_episode_for_task(
                 )
                 raw_text = response.choices[0].message.content or ""
                 action = _extract_json(raw_text)
-            except Exception as exc:
+            except BaseException as exc:
                 step_error = f"model_call_error:{type(exc).__name__}"
                 action = _empty_action()
 
         try:
             transition = env.step(action)
-        except Exception as exc:
+        except BaseException as exc:
             # Prevent fail-fast crashes during validator execution.
             step_error = step_error or f"env_step_error:{type(exc).__name__}"
             transition = {"reward": 0.0, "done": True, "observation": observation, "info": {}}
@@ -165,13 +165,13 @@ def main() -> None:
     if not dry_run:
         try:
             client = OpenAI(base_url=api_base_url, api_key=hf_token)
-        except Exception:
+        except BaseException:
             dry_run = True
             client = None
 
     try:
         env = CodeReviewEnv()
-    except Exception as exc:
+    except BaseException as exc:
         # Last-resort guard: keep validator process alive and deterministic.
         log_start(0, model_name)
         log_step(step=1, action=_empty_action(), reward=0.0, done=True, error=f"env_init_error:{type(exc).__name__}")
@@ -191,7 +191,7 @@ def main() -> None:
                 task_id=task_id,
                 dry_run=dry_run,
             )
-        except Exception as exc:
+        except BaseException as exc:
             # Keep process exit code zero and continue remaining tasks.
             log_start(task_id, model_name)
             log_step(step=1, action=_empty_action(), reward=0.0, done=True, error=f"task_error:{type(exc).__name__}")
@@ -206,7 +206,7 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
-    except Exception as exc:
+    except BaseException as exc:
         # Never crash hard in evaluation pipelines.
         print(f"[END] fatal_error={type(exc).__name__}")
         print("[END] all_tasks_completed elapsed_seconds=0.00")
