@@ -103,29 +103,22 @@ def run_episode_for_task(
                     "instructions": "Return only JSON action."
                 }
 
+                raw_text = ""
                 try:
-                    response = client.chat.completions.create(
+                    response = client.responses.create(
                         model=model_name,
-                        temperature=0.0,
-                        timeout=40,
-                        messages=[
+                        input=[
                             {"role": "system", "content": _system_prompt()},
                             {"role": "user", "content": json.dumps(user_payload)},
                         ],
+                        timeout=40,
                     )
-                    # Support multiple SDK response shapes safely.
-                    raw_text = ""
-                    if hasattr(response, "choices") and response.choices:
-                        first = response.choices[0]
-                        message = getattr(first, "message", None)
-                        raw_text = getattr(message, "content", "") or ""
-                    if not raw_text and hasattr(response, "output_text"):
-                        raw_text = getattr(response, "output_text", "") or ""
-
-                    action = _extract_json(raw_text) if raw_text else _empty_action()
+                    raw_text = getattr(response, "output_text", "") or ""
                 except BaseException as exc:
                     step_error = f"model_call_error:{type(exc).__name__}"
-                    action = _empty_action()
+                    raw_text = ""
+
+                action = _extract_json(raw_text) if raw_text else _empty_action()
 
         try:
             transition = env.step(action)
@@ -158,7 +151,7 @@ def main() -> None:
     # Required environment variables with correct defaults
     api_base_url = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
     model_name = os.getenv("MODEL_NAME", "gpt-4o-mini")
-    hf_token = os.getenv("HF_TOKEN")                    # NO default - as required
+    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN")
 
     # Optional for some OpenEnv runners
     local_image_name = os.getenv("LOCAL_IMAGE_NAME")
@@ -174,7 +167,7 @@ def main() -> None:
     dry_run = requested_dry_run or (not allow_network_inference)
     _ = local_image_name  # silence unused variable warning
 
-    if not dry_run and not hf_token:
+    if not dry_run and not api_key:
         # Do not crash the whole script in validator runs; degrade gracefully.
         dry_run = True
 
@@ -183,7 +176,7 @@ def main() -> None:
         try:
             from openai import OpenAI
 
-            client = OpenAI(base_url=api_base_url, api_key=hf_token)
+            client = OpenAI(base_url=api_base_url, api_key=api_key)
         except BaseException:
             dry_run = True
             client = None
