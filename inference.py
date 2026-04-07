@@ -117,11 +117,14 @@ def run_episode_for_task(
 def main() -> None:
     api_base_url = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
     model_name = os.getenv("MODEL_NAME", "gpt-4o-mini")
-    hf_token = os.getenv("HF_TOKEN") or os.getenv("OPENAI_API_KEY")
+    hf_token = os.getenv("HF_TOKEN")
+    # Optional variable used by some OpenEnv runners when loading local images.
+    local_image_name = os.getenv("LOCAL_IMAGE_NAME")
     dry_run = os.getenv("INFERENCE_DRY_RUN", "0") == "1"
+    _ = local_image_name
 
     if not dry_run and not hf_token:
-        raise RuntimeError("Set HF_TOKEN (or OPENAI_API_KEY) before running inference.py")
+        raise RuntimeError("Set HF_TOKEN before running inference.py")
 
     client = OpenAI(base_url=api_base_url, api_key=hf_token) if not dry_run else None
     env = CodeReviewEnv()
