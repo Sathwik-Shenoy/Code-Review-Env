@@ -4,7 +4,7 @@ import json
 import os
 import re
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 
@@ -49,12 +49,25 @@ def _empty_action() -> Dict[str, Any]:
     }
 
 
-def _bool_text(value: bool) -> str:
-    return "true" if value else "false"
+def log_start(task_id: int, model_name: str) -> None:
+    print(f"[START] task={task_id} env=codereviewenv model={model_name}", flush=True)
 
 
-def _compact_json(data: Dict[str, Any]) -> str:
-    return json.dumps(data, separators=(",", ":"), sort_keys=True)
+def log_step(step: int, action: Dict[str, Any], reward: float, done: bool, error: Optional[str] = None) -> None:
+    action_str = json.dumps(action, separators=(",", ":")) if action else "null"
+    print(
+        f"[STEP] step={step} action={action_str} reward={reward:.2f} "
+        f"done={str(done).lower()} error={error or 'null'}",
+        flush=True
+    )
+
+
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(
+        f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}",
+        flush=True
+    )
 
 
 def run_episode_for_task(
@@ -63,28 +76,32 @@ def run_episode_for_task(
     model_name: str,
     task_id: int,
     dry_run: bool = False,
-) -> None:
+) -> tuple[float, int, List[float]]:
     observation = env.reset(task_id=task_id)
-    print(f"[START] task={task_id} step={observation['step_num']}")
+    log_start(task_id, model_name)
 
     done = False
-    episode_reward = 0.0
+    rewards: List[float] = []
     step_idx = 0
+    action = None
 
     while not done:
         step_idx += 1
-        user_payload = {
-            "observation": observation,
-            "instructions": "Return only JSON action."
-        }
+
         if dry_run:
             action = _empty_action()
         else:
             if client is None:
                 raise RuntimeError("OpenAI client is required when dry_run is disabled")
+
+            user_payload = {
+                "observation": observation,
+                "instructions": "Return only JSON action."
+            }
+
             response = client.chat.completions.create(
                 model=model_name,
-                temperature=0,
+                temperature=0.0,
                 timeout=40,
                 messages=[
                     {"role": "system", "content": _system_prompt()},
@@ -99,45 +116,50 @@ def run_episode_for_task(
                 action = _empty_action()
 
         transition = env.step(action)
-        reward = float(transition["reward"])
-        done = bool(transition["done"])
-        observation = transition["observation"]
-        episode_reward += reward
+        reward = float(transition.get("reward", 0.0))
+        done = bool(transition.get("done", False))
+        observation = transition.get("observation", observation)
+        rewards.append(reward)
 
-        print(
-            "[STEP] "
-            f"task={task_id} step={step_idx} reward={reward:.4f} done={_bool_text(done)} "
-            f"issues={len(action.get('issues', []))} "
-            f"breakdown={_compact_json(transition['info'].get('reward_breakdown', {}))}"
-        )
+        log_step(step=step_idx, action=action, reward=reward, done=done)
 
-    print(f"[END] task={task_id} total_reward={episode_reward:.4f} steps={step_idx}")
+    # Simple normalized score (0.0 - 1.0)
+    score = sum(rewards) / len(rewards) if rewards else 0.0
+    score = max(0.0, min(1.0, score))
+
+    log_end(success=score >= 0.1, steps=step_idx, score=score, rewards=rewards)
+    return score, step_idx, rewards
 
 
 def main() -> None:
+    # Required environment variables with correct defaults
     api_base_url = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
     model_name = os.getenv("MODEL_NAME", "gpt-4o-mini")
-    hf_token = os.getenv("HF_TOKEN")
-    # Optional variable used by some OpenEnv runners when loading local images.
+    hf_token = os.getenv("HF_TOKEN")                    # NO default - as required
+
+    # Optional for some OpenEnv runners
     local_image_name = os.getenv("LOCAL_IMAGE_NAME")
     dry_run = os.getenv("INFERENCE_DRY_RUN", "0") == "1"
-    _ = local_image_name
+    _ = local_image_name  # silence unused variable warning
 
     if not dry_run and not hf_token:
-        raise RuntimeError("Set HF_TOKEN before running inference.py")
+        raise RuntimeError("HF_TOKEN environment variable is required when not in dry_run mode")
 
     client = OpenAI(base_url=api_base_url, api_key=hf_token) if not dry_run else None
     env = CodeReviewEnv()
 
     started = time.time()
+    all_rewards: List[float] = []
+
     for task_id in (1, 2, 3):
-        run_episode_for_task(
+        _, _, task_rewards = run_episode_for_task(
             env=env,
             client=client,
             model_name=model_name,
             task_id=task_id,
             dry_run=dry_run,
         )
+        all_rewards.extend(task_rewards)
 
     elapsed = time.time() - started
     print(f"[END] all_tasks_completed elapsed_seconds={elapsed:.2f}")
