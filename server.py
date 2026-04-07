@@ -63,8 +63,10 @@ class StateResponse(BaseModel):
 
 
 @app.post("/reset", response_model=ResetResponse)
-def reset(req: ResetRequest) -> ResetResponse:
-    observation = env.reset(task_id=req.task_id, seed=req.seed)
+def reset(req: Optional[ResetRequest] = None) -> ResetResponse:
+    task_id = req.task_id if req is not None else None
+    seed = req.seed if req is not None else None
+    observation = env.reset(task_id=task_id, seed=seed)
     return ResetResponse(observation=ObservationModel(**observation))
 
 
