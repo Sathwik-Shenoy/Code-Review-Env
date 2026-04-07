@@ -165,9 +165,12 @@ def main() -> None:
     explicit_dry_run = os.getenv("INFERENCE_DRY_RUN")
     allow_network_inference = os.getenv("ALLOW_NETWORK_INFERENCE", "0") == "1"
     if explicit_dry_run is None:
-        dry_run = not allow_network_inference
+        requested_dry_run = True
     else:
-        dry_run = explicit_dry_run == "1"
+        requested_dry_run = explicit_dry_run == "1"
+
+    # Network inference requires explicit opt-in, even if INFERENCE_DRY_RUN=0 is set by the runner.
+    dry_run = requested_dry_run or (not allow_network_inference)
     _ = local_image_name  # silence unused variable warning
 
     if not dry_run and not hf_token:
