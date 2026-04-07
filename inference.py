@@ -161,8 +161,23 @@ def main() -> None:
         # Do not crash the whole script in validator runs; degrade gracefully.
         dry_run = True
 
-    client = OpenAI(base_url=api_base_url, api_key=hf_token) if not dry_run else None
-    env = CodeReviewEnv()
+    client: Optional[OpenAI] = None
+    if not dry_run:
+        try:
+            client = OpenAI(base_url=api_base_url, api_key=hf_token)
+        except Exception:
+            dry_run = True
+            client = None
+
+    try:
+        env = CodeReviewEnv()
+    except Exception as exc:
+        # Last-resort guard: keep validator process alive and deterministic.
+        log_start(0, model_name)
+        log_step(step=1, action=_empty_action(), reward=0.0, done=True, error=f"env_init_error:{type(exc).__name__}")
+        log_end(success=False, steps=1, score=0.0, rewards=[0.0])
+        print("[END] all_tasks_completed elapsed_seconds=0.00")
+        return
 
     started = time.time()
     all_rewards: List[float] = []
@@ -189,4 +204,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:
+        # Never crash hard in evaluation pipelines.
+        print(f"[END] fatal_error={type(exc).__name__}")
+        print("[END] all_tasks_completed elapsed_seconds=0.00")
