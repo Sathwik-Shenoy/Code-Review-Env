@@ -90,41 +90,42 @@ def run_episode_for_task(
     while not done and step_idx < max_steps:
         step_idx += 1
         step_error: Optional[str] = None
+        action = _empty_action()
 
         if dry_run:
-            action = _empty_action()
+            pass
         else:
             if client is None:
                 step_error = "client_unavailable"
-                action = _empty_action()
-                transition = env.step(action)
-                reward = float(transition.get("reward", 0.0))
-                done = bool(transition.get("done", False))
-                observation = transition.get("observation", observation)
-                rewards.append(reward)
-                log_step(step=step_idx, action=action, reward=reward, done=done, error=step_error)
-                continue
+            else:
+                user_payload = {
+                    "observation": observation,
+                    "instructions": "Return only JSON action."
+                }
 
-            user_payload = {
-                "observation": observation,
-                "instructions": "Return only JSON action."
-            }
+                try:
+                    response = client.chat.completions.create(
+                        model=model_name,
+                        temperature=0.0,
+                        timeout=40,
+                        messages=[
+                            {"role": "system", "content": _system_prompt()},
+                            {"role": "user", "content": json.dumps(user_payload)},
+                        ],
+                    )
+                    # Support multiple SDK response shapes safely.
+                    raw_text = ""
+                    if hasattr(response, "choices") and response.choices:
+                        first = response.choices[0]
+                        message = getattr(first, "message", None)
+                        raw_text = getattr(message, "content", "") or ""
+                    if not raw_text and hasattr(response, "output_text"):
+                        raw_text = getattr(response, "output_text", "") or ""
 
-            try:
-                response = client.chat.completions.create(
-                    model=model_name,
-                    temperature=0.0,
-                    timeout=40,
-                    messages=[
-                        {"role": "system", "content": _system_prompt()},
-                        {"role": "user", "content": json.dumps(user_payload)},
-                    ],
-                )
-                raw_text = response.choices[0].message.content or ""
-                action = _extract_json(raw_text)
-            except BaseException as exc:
-                step_error = f"model_call_error:{type(exc).__name__}"
-                action = _empty_action()
+                    action = _extract_json(raw_text) if raw_text else _empty_action()
+                except BaseException as exc:
+                    step_error = f"model_call_error:{type(exc).__name__}"
+                    action = _empty_action()
 
         try:
             transition = env.step(action)
