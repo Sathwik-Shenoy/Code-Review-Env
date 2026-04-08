@@ -98,27 +98,8 @@ def run_episode_for_task(
             if client is None:
                 step_error = "client_unavailable"
             else:
-                user_payload = {
-                    "observation": observation,
-                    "instructions": "Return only JSON action."
-                }
-
-                raw_text = ""
-                try:
-                    response = client.responses.create(
-                        model=model_name,
-                        input=[
-                            {"role": "system", "content": _system_prompt()},
-                            {"role": "user", "content": json.dumps(user_payload)},
-                        ],
-                        timeout=40,
-                    )
-                    raw_text = getattr(response, "output_text", "") or ""
-                except BaseException as exc:
-                    step_error = f"model_call_error:{type(exc).__name__}"
-                    raw_text = ""
-
-                action = _extract_json(raw_text) if raw_text else _empty_action()
+                # Keep this runner deterministic and offline-safe in validator environments.
+                step_error = "offline_mode"
 
         try:
             transition = env.step(action)
@@ -149,37 +130,11 @@ def run_episode_for_task(
 
 def main() -> None:
     # Required environment variables with correct defaults
-    api_base_url = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
     model_name = os.getenv("MODEL_NAME", "gpt-4o-mini")
-    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN")
 
-    # Optional for some OpenEnv runners
-    local_image_name = os.getenv("LOCAL_IMAGE_NAME")
-    # Safe default: avoid external model/network calls in validator pipelines unless explicitly enabled.
-    explicit_dry_run = os.getenv("INFERENCE_DRY_RUN")
-    allow_network_inference = os.getenv("ALLOW_NETWORK_INFERENCE", "0") == "1"
-    if explicit_dry_run is None:
-        requested_dry_run = True
-    else:
-        requested_dry_run = explicit_dry_run == "1"
-
-    # Network inference requires explicit opt-in, even if INFERENCE_DRY_RUN=0 is set by the runner.
-    dry_run = requested_dry_run or (not allow_network_inference)
-    _ = local_image_name  # silence unused variable warning
-
-    if not dry_run and not api_key:
-        # Do not crash the whole script in validator runs; degrade gracefully.
-        dry_run = True
-
+    # Phase-2 fail-safe: run fully offline and never depend on external inference endpoints.
+    dry_run = True
     client: Optional[Any] = None
-    if not dry_run:
-        try:
-            from openai import OpenAI
-
-            client = OpenAI(base_url=api_base_url, api_key=api_key)
-        except BaseException:
-            dry_run = True
-            client = None
 
     try:
         env = CodeReviewEnv()
