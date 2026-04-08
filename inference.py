@@ -1,3 +1,4 @@
+print("NEW VERSION RUNNING", flush=True)
 from __future__ import annotations
 
 import json
