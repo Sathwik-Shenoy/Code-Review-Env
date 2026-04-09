@@ -47,6 +47,52 @@ def _empty_action() -> Dict[str, Any]:
     }
 
 
+def _parse_bool_env(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _generate_action_with_fallback(
+    *,
+    client: Optional[Any],
+    model_name: str,
+    observation: Dict[str, Any],
+    offline_mode: bool,
+) -> tuple[Dict[str, Any], Optional[str]]:
+    """
+    Build one action for the environment.
+    Returns (action, step_error). action is always valid and never raises.
+    """
+    if offline_mode:
+        return _empty_action(), None
+
+    if client is None:
+        return _empty_action(), "client_unavailable"
+
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": _system_prompt()},
+                {"role": "user", "content": json.dumps(observation, ensure_ascii=False)},
+            ],
+            temperature=0.0,
+        )
+    except BaseException as exc:
+        return _empty_action(), f"inference_error:{type(exc).__name__}"
+
+    try:
+        content = (response.choices[0].message.content or "").strip()
+        action = _extract_json(content)
+        if not isinstance(action, dict):
+            return _empty_action(), "invalid_action_type"
+        return action, None
+    except BaseException as exc:
+        return _empty_action(), f"parse_error:{type(exc).__name__}"
+
+
 def log_start(task_id: int, model_name: str) -> None:
     print(f"[START] task={task_id} env=codereviewenv model={model_name}", flush=True)
 
@@ -89,17 +135,12 @@ def run_episode_for_task(
 
     while not done and step_idx < max_steps:
         step_idx += 1
-        step_error: Optional[str] = None
-        action = _empty_action()
-
-        if dry_run:
-            pass
-        else:
-            if client is None:
-                step_error = "client_unavailable"
-            else:
-                # Keep this runner deterministic and offline-safe in validator environments.
-                step_error = "offline_mode"
+        action, step_error = _generate_action_with_fallback(
+            client=client,
+            model_name=model_name,
+            observation=observation if isinstance(observation, dict) else {"observation": observation},
+            offline_mode=dry_run,
+        )
 
         try:
             transition = env.step(action)
@@ -132,9 +173,16 @@ def main() -> None:
     # Required environment variables with correct defaults
     model_name = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
-    # Phase-2 fail-safe: run fully offline and never depend on external inference endpoints.
-    dry_run = True
+    # Phase-2 fail-safe defaults to offline mode unless explicitly disabled.
+    dry_run = _parse_bool_env("OFFLINE_MODE", True)
     client: Optional[Any] = None
+    if not dry_run:
+        try:
+            from openai import OpenAI  # local import keeps offline path dependency-free
+
+            client = OpenAI()
+        except BaseException:
+            client = None
 
     try:
         env = CodeReviewEnv()
