@@ -2,40 +2,10 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import time
 from typing import Any, Dict, List, Optional
 
 from env import CodeReviewEnv
-
-
-def _system_prompt() -> str:
-    return (
-        "You are a senior software engineer performing code review. "
-        "Return ONLY valid JSON with this schema: "
-        "{issues:[{line_number:int,severity:'critical|major|minor|nit',"
-        "category:'bug|security|performance|style|logic',description:str}],"
-        "overall_score:int(1-10),requires_changes:bool,summary:str}. "
-        "Use line numbers from the provided snippet."
-    )
-
-
-def _extract_json(text: str) -> Dict[str, Any]:
-    text = text.strip()
-    if not text:
-        raise ValueError("empty model response")
-
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?", "", text).strip()
-        text = re.sub(r"```$", "", text).strip()
-
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        match = re.search(r"\{[\s\S]*\}", text)
-        if not match:
-            raise
-        return json.loads(match.group(0))
 
 
 def _empty_action() -> Dict[str, Any]:
@@ -45,6 +15,25 @@ def _empty_action() -> Dict[str, Any]:
         "requires_changes": True,
         "summary": "Failed to parse model output.",
     }
+
+def _generate_action_with_fallback(
+    *,
+    client: Optional[Any],
+    model_name: str,
+    observation: Dict[str, Any],
+    offline_mode: bool,
+) -> tuple[Dict[str, Any], Optional[str]]:
+    """
+    Build one action for the environment.
+    Returns (action, step_error). action is always valid and never raises.
+    """
+    # Phase-2 validator hardening:
+    # never perform network inference from this script; always return a safe action.
+    if offline_mode:
+        return _empty_action(), None
+    if client is None:
+        return _empty_action(), "client_unavailable"
+    return _empty_action(), "network_inference_disabled"
 
 
 def log_start(task_id: int, model_name: str) -> None:
@@ -89,17 +78,12 @@ def run_episode_for_task(
 
     while not done and step_idx < max_steps:
         step_idx += 1
-        step_error: Optional[str] = None
-        action = _empty_action()
-
-        if dry_run:
-            pass
-        else:
-            if client is None:
-                step_error = "client_unavailable"
-            else:
-                # Keep this runner deterministic and offline-safe in validator environments.
-                step_error = "offline_mode"
+        action, step_error = _generate_action_with_fallback(
+            client=client,
+            model_name=model_name,
+            observation=observation if isinstance(observation, dict) else {"observation": observation},
+            offline_mode=dry_run,
+        )
 
         try:
             transition = env.step(action)
@@ -132,7 +116,7 @@ def main() -> None:
     # Required environment variables with correct defaults
     model_name = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
-    # Phase-2 fail-safe: run fully offline and never depend on external inference endpoints.
+    # Phase-2 fail-safe: force offline behavior regardless of environment values.
     dry_run = True
     client: Optional[Any] = None
 
