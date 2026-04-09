@@ -36,6 +36,52 @@ def _generate_action_with_fallback(
     return _empty_action(), "network_inference_disabled"
 
 
+def _parse_bool_env(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _generate_action_with_fallback(
+    *,
+    client: Optional[Any],
+    model_name: str,
+    observation: Dict[str, Any],
+    offline_mode: bool,
+) -> tuple[Dict[str, Any], Optional[str]]:
+    """
+    Build one action for the environment.
+    Returns (action, step_error). action is always valid and never raises.
+    """
+    if offline_mode:
+        return _empty_action(), None
+
+    if client is None:
+        return _empty_action(), "client_unavailable"
+
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": _system_prompt()},
+                {"role": "user", "content": json.dumps(observation, ensure_ascii=False)},
+            ],
+            temperature=0.0,
+        )
+    except BaseException as exc:
+        return _empty_action(), f"inference_error:{type(exc).__name__}"
+
+    try:
+        content = (response.choices[0].message.content or "").strip()
+        action = _extract_json(content)
+        if not isinstance(action, dict):
+            return _empty_action(), "invalid_action_type"
+        return action, None
+    except BaseException as exc:
+        return _empty_action(), f"parse_error:{type(exc).__name__}"
+
+
 def log_start(task_id: int, model_name: str) -> None:
     print(f"[START] task={task_id} env=codereviewenv model={model_name}", flush=True)
 
@@ -119,6 +165,13 @@ def main() -> None:
     # Phase-2 fail-safe: force offline behavior regardless of environment values.
     dry_run = True
     client: Optional[Any] = None
+    if not dry_run:
+        try:
+            from openai import OpenAI  # local import keeps offline path dependency-free
+
+            client = OpenAI()
+        except BaseException:
+            client = None
 
     try:
         env = CodeReviewEnv()
