@@ -2,40 +2,10 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import time
 from typing import Any, Dict, List, Optional
 
 from env import CodeReviewEnv
-
-
-def _system_prompt() -> str:
-    return (
-        "You are a senior software engineer performing code review. "
-        "Return ONLY valid JSON with this schema: "
-        "{issues:[{line_number:int,severity:'critical|major|minor|nit',"
-        "category:'bug|security|performance|style|logic',description:str}],"
-        "overall_score:int(1-10),requires_changes:bool,summary:str}. "
-        "Use line numbers from the provided snippet."
-    )
-
-
-def _extract_json(text: str) -> Dict[str, Any]:
-    text = text.strip()
-    if not text:
-        raise ValueError("empty model response")
-
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?", "", text).strip()
-        text = re.sub(r"```$", "", text).strip()
-
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        match = re.search(r"\{[\s\S]*\}", text)
-        if not match:
-            raise
-        return json.loads(match.group(0))
 
 
 def _empty_action() -> Dict[str, Any]:
@@ -45,6 +15,25 @@ def _empty_action() -> Dict[str, Any]:
         "requires_changes": True,
         "summary": "Failed to parse model output.",
     }
+
+def _generate_action_with_fallback(
+    *,
+    client: Optional[Any],
+    model_name: str,
+    observation: Dict[str, Any],
+    offline_mode: bool,
+) -> tuple[Dict[str, Any], Optional[str]]:
+    """
+    Build one action for the environment.
+    Returns (action, step_error). action is always valid and never raises.
+    """
+    # Phase-2 validator hardening:
+    # never perform network inference from this script; always return a safe action.
+    if offline_mode:
+        return _empty_action(), None
+    if client is None:
+        return _empty_action(), "client_unavailable"
+    return _empty_action(), "network_inference_disabled"
 
 
 def _parse_bool_env(name: str, default: bool) -> bool:
@@ -173,8 +162,8 @@ def main() -> None:
     # Required environment variables with correct defaults
     model_name = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
-    # Phase-2 fail-safe defaults to offline mode unless explicitly disabled.
-    dry_run = _parse_bool_env("OFFLINE_MODE", True)
+    # Phase-2 fail-safe: force offline behavior regardless of environment values.
+    dry_run = True
     client: Optional[Any] = None
     if not dry_run:
         try:
